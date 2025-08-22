@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react'
-import { Settings, PlusCircle, Trash2, KeyRound, Star } from 'lucide-react'
+import { Settings, PlusCircle, Trash2, KeyRound, Star, Sparkles } from 'lucide-react'
 import { useURGraph } from '@/hooks/use-urgraph'
 import { Button } from '@/components/ui/button'
 import {
@@ -118,6 +118,10 @@ export function SettingsDialog() {
                          <div className="flex items-center space-x-2">
                             <RadioGroupItem value="secondary" id="secondary-key" />
                             <Label htmlFor="secondary-key" className="flex items-center gap-2">Secondary Key <KeyRound className="h-4 w-4 text-muted-foreground"/></Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="tertiary" id="tertiary-key" />
+                            <Label htmlFor="tertiary-key" className="flex items-center gap-2">Tertiary Key <Sparkles className="h-4 w-4 text-muted-foreground"/></Label>
                         </div>
                         {(settings.apiKeys || []).map(apiKey => (
                              <div className="flex items-center space-x-2" key={apiKey.name}>
