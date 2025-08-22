@@ -26,7 +26,7 @@ import { useURGraph } from '@/hooks/use-urgraph'
 import { useToast } from '@/hooks/use-toast';
 import type { Action } from '@/lib/types';
 import { SettingsDialog } from './settings-dialog';
-import { URGraphLogo } from './urgraph-logo';
+import Image from 'next/image';
 
 
 export function URGraphHeader() {
@@ -78,7 +78,7 @@ export function URGraphHeader() {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             if (!ctx) return;
-            const img = new Image();
+            const img = new window.Image();
             img.onload = () => {
                 canvas.width = img.width;
                 canvas.height = img.height;
@@ -126,8 +126,8 @@ export function URGraphHeader() {
 
   return (
     <header className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10 backdrop-blur-sm bg-white/30 dark:bg-black/30 sticky top-0 z-10">
-      <div className="flex items-center gap-2">
-        <URGraphLogo className="w-8 h-8 text-primary"/>
+      <div className="flex items-center gap-3">
+        <Image src="/logo.png" alt="URGraph Logo" width={32} height={32} className="rounded-full" />
         <h1 className="text-2xl font-bold tracking-tighter">URGraph</h1>
       </div>
       <div className="flex items-center gap-2">
