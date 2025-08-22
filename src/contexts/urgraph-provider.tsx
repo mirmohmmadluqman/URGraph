@@ -5,7 +5,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useState } from 
 import { getAiSuggestions } from '@/lib/actions'
 import type { Action, TimeRange, HistoryCompaction } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
-import { subDays, subMonths, subWeeks, subYears, isAfter, startOfDay, startOfWeek, startOfMonth, format } from 'date-fns'
+import { subDays, subMonths, subWeeks, subYears, isAfter, startOfDay, startOfWeek, startOfMonth, format, parseISO } from 'date-fns'
 
 interface Goal {
   target: number
@@ -92,59 +92,75 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     }
   }, [settings]);
 
-  const compactHistory = useCallback(() => {
-    if (settings.historyCompaction === 'never') return;
+  const compactHistory = useCallback((actionsToCompact: Action[]) => {
+    if (settings.historyCompaction === 'never' || actionsToCompact.length === 0) return actionsToCompact;
 
     const now = new Date();
-    const compactedActions: Action[] = [];
-    const actionsToCompact: Action[] = [];
-
     let thresholdDate: Date;
+    let periodFormat: string;
+    let periodName: string;
+
     if (settings.historyCompaction === 'weekly') {
-      thresholdDate = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+      thresholdDate = startOfWeek(now, { weekStartsOn: 1 });
+      periodFormat = 'yyyy-ww';
+      periodName = 'week';
     } else { // monthly
       thresholdDate = startOfMonth(now);
+      periodFormat = 'yyyy-MM';
+      periodName = 'month';
     }
 
-    const actionsToKeep = actions.filter(action => {
-      const actionDate = new Date(action.date);
+    const actionsToKeep: Action[] = [];
+    const compactionGroups: { [key: string]: Action[] } = {};
+
+    actionsToCompact.forEach(action => {
+      const actionDate = parseISO(action.date);
       if (isAfter(actionDate, thresholdDate) || action.description.startsWith('Compacted')) {
-        return true;
+        actionsToKeep.push(action);
+      } else {
+        const periodKey = format(actionDate, periodFormat);
+        if (!compactionGroups[periodKey]) {
+          compactionGroups[periodKey] = [];
+        }
+        compactionGroups[periodKey].push(action);
       }
-      actionsToCompact.push(action);
-      return false;
     });
 
-    if (actionsToCompact.length === 0) return;
+    const compactedActions: Action[] = Object.entries(compactionGroups).map(([periodKey, group]) => {
+      const compactedScore = group.reduce((sum, action) => sum + action.score, 0);
+      const firstActionDate = group.sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())[0].date;
+      
+      return {
+        id: `compacted-${periodKey}`,
+        description: `Compacted Score for ${periodName} of ${format(parseISO(firstActionDate), 'MMM yyyy')}`,
+        score: compactedScore,
+        date: firstActionDate,
+        category: 'COMPACTED'
+      };
+    });
 
-    const compactedScore = actionsToCompact.reduce((sum, action) => sum + action.score, 0);
+    // Merge new compacted actions with existing ones
+    const finalCompacted = compactedActions.reduce((acc, current) => {
+        const existing = acc.find(a => a.id === current.id);
+        if (existing) {
+            existing.score += current.score;
+        } else {
+            acc.push(current);
+        }
+        return acc;
+    }, actionsToKeep.filter(a => a.id.startsWith('compacted-')));
 
-    if (compactedScore !== 0) {
-      const periodFormat = settings.historyCompaction === 'weekly' ? 'yyyy-ww' : 'yyyy-MM';
-      const compactedId = `compacted-${format(new Date(actionsToCompact[0].date), periodFormat)}`;
-      const existingCompacted = actionsToKeep.find(a => a.id === compactedId);
-
-      if (existingCompacted) {
-        existingCompacted.score += compactedScore;
-      } else {
-        const newCompactedAction: Action = {
-          id: compactedId,
-          description: `Compacted Score for ${settings.historyCompaction === 'weekly' ? 'week' : 'month'} of ${format(new Date(actionsToCompact[0].date), 'MMM yyyy')}`,
-          score: compactedScore,
-          date: actionsToCompact[0].date, // Keep the date of the first action of the period
-          category: 'COMPACTED'
-        };
-        compactedActions.push(newCompactedAction);
-      }
-    }
-    
-    setActions([...actionsToKeep, ...compactedActions]);
-
-  }, [actions, settings.historyCompaction]);
+    return [...actionsToKeep.filter(a => !a.id.startsWith('compacted-')), ...finalCompacted];
+  }, [settings.historyCompaction]);
 
   useEffect(() => {
-    compactHistory();
-  }, [compactHistory]);
+    if (settings.historyCompaction !== 'never') {
+        const compacted = compactHistory(actions);
+        if (JSON.stringify(compacted) !== JSON.stringify(actions)) {
+            setActions(compacted);
+        }
+    }
+  }, [settings.historyCompaction, compactHistory]);
 
 
   const addAction = useCallback((description: string, score: number, category?: string) => {
@@ -227,20 +243,20 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       default:
         return actions;
     }
-    return actions.filter(action => isAfter(new Date(action.date), startDate));
+    return actions.filter(action => isAfter(parseISO(action.date), startDate));
   }, [actions, timeRange])
 
   const { graphData, stats } = useMemo(() => {
-    const sortedActions = [...filteredActions].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const sortedActions = [...filteredActions].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
     const dailyScores: { [key: string]: number } = {}
     
     for (const action of sortedActions) {
-      const day = startOfDay(new Date(action.date)).toISOString().split('T')[0]
+      const day = startOfDay(parseISO(action.date)).toISOString().split('T')[0]
       dailyScores[day] = (dailyScores[day] || 0) + action.score
     }
 
     const today = startOfDay(new Date()).toISOString().split('T')[0];
-    const todayActions = actions.filter(a => startOfDay(new Date(a.date)).toISOString().split('T')[0] === today);
+    const todayActions = actions.filter(a => startOfDay(parseISO(a.date)).toISOString().split('T')[0] === today);
 
     let cumulativeScore = 0
     const graphPoints = Object.entries(dailyScores).map(([date, dailyDelta]) => {
@@ -260,7 +276,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     // Streak calculation
     const allDaysScores: { [key: string]: number } = {}
     for (const action of actions) {
-        const day = startOfDay(new Date(action.date)).toISOString().split('T')[0]
+        const day = startOfDay(parseISO(action.date)).toISOString().split('T')[0]
         allDaysScores[day] = (allDaysScores[day] || 0) + action.score
     }
 
