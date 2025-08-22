@@ -2,10 +2,26 @@ import {genkit, GenerationCommonConfig} from 'genkit';
 import {googleAI} from '@genkit-ai/googleai';
 import { z } from 'zod';
 
-// Helper to get the API key from environment or flow state
+// Helper to get the API key based on flow configuration
 function getApiKey(config: GenerationCommonConfig<z.ZodType>) {
     const state = config as any;
-    return state.apiKey || process.env.GEMINI_API_KEY;
+
+    if (state.apiKey) {
+      // This is a user-provided key from the settings UI
+      return state.apiKey;
+    }
+    
+    // Check for Main or Secondary keys from .env
+    const activeSystemKey = state.activeApiKey; // 'main', 'secondary'
+    if (activeSystemKey === 'main') {
+      return process.env.MAIN_GEMINI_API_KEY;
+    }
+    if (activeSystemKey === 'secondary') {
+        return process.env.SECONDARY_GEMINI_API_KEY;
+    }
+    
+    // Fallback to the main key if no specific key is designated
+    return process.env.MAIN_GEMINI_API_KEY;
 }
 
 export const ai = genkit({

@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState } from 'react'
-import { Settings, PlusCircle, Trash2 } from 'lucide-react'
+import { Settings, PlusCircle, Trash2, KeyRound, Star } from 'lucide-react'
 import { useURGraph } from '@/hooks/use-urgraph'
 import { Button } from '@/components/ui/button'
 import {
@@ -68,7 +68,7 @@ export function SettingsDialog() {
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>Manage your application settings.</DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto pr-4">
             <div className="space-y-4">
                 <div className="space-y-2">
                     <Label>History Compaction</Label>
@@ -102,7 +102,7 @@ export function SettingsDialog() {
                 <div className="space-y-2">
                     <Label>AI Suggestions Provider (Gemini)</Label>
                     <p className="text-sm text-muted-foreground">
-                        Use the default API key or add your own.
+                        Select which API key to use for AI-powered suggestions.
                     </p>
                 </div>
                 <div className="space-y-2">
@@ -113,7 +113,11 @@ export function SettingsDialog() {
                     >
                         <div className="flex items-center space-x-2">
                             <RadioGroupItem value="main" id="main-key" />
-                            <Label htmlFor="main-key">Default Key</Label>
+                            <Label htmlFor="main-key" className="flex items-center gap-2">Main Key <Star className="h-4 w-4 text-amber-500" /></Label>
+                        </div>
+                         <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="secondary" id="secondary-key" />
+                            <Label htmlFor="secondary-key" className="flex items-center gap-2">Secondary Key <KeyRound className="h-4 w-4 text-muted-foreground"/></Label>
                         </div>
                         {(settings.apiKeys || []).map(apiKey => (
                              <div className="flex items-center space-x-2" key={apiKey.name}>
@@ -125,7 +129,7 @@ export function SettingsDialog() {
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Manage Your API Keys</Label>
+                    <Label>Your Custom API Keys</Label>
                     <div className="space-y-2">
                         {(settings.apiKeys || []).map(apiKey => (
                             <div key={apiKey.name} className="flex items-center gap-2 p-2 border rounded-md bg-muted/50">
@@ -136,6 +140,9 @@ export function SettingsDialog() {
                                </Button>
                             </div>
                         ))}
+                         {(!settings.apiKeys || settings.apiKeys.length === 0) && (
+                            <p className="text-sm text-muted-foreground text-center py-2">You haven't added any custom keys.</p>
+                        )}
                     </div>
                 </div>
 

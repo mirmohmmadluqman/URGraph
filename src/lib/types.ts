@@ -12,6 +12,6 @@ export type HistoryCompaction = 'never' | 'weekly' | 'monthly';
 
 export interface URGraphSettings {
     historyCompaction: HistoryCompaction;
-    activeApiKey?: string;
+    activeApiKey?: string; // 'main', 'secondary', or a custom key name
     apiKeys?: { name: string; key: string }[];
 }

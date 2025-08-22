@@ -10,7 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import { subMonths, parseISO } from 'date-fns';
+import { subMonths, parseISO, isAfter } from 'date-fns';
 
 const SuggestActionLabelsInputSchema = z.object({
   score: z
@@ -24,6 +24,7 @@ const SuggestActionLabelsInputSchema = z.object({
     }))
     .describe('An array of previous action entries from the last 2 months.'),
   apiKey: z.string().optional().describe('Optional user-provided Gemini API key.'),
+  activeApiKey: z.string().optional().describe("Identifier for the active key ('main', 'secondary', or custom key name)."),
 });
 export type SuggestActionLabelsInput = z.infer<typeof SuggestActionLabelsInputSchema>;
 
@@ -38,9 +39,10 @@ export async function suggestActionLabels(input: SuggestActionLabelsInput): Prom
   return suggestActionLabelsFlow(input);
 }
 
-const twoMonthsAgo = subMonths(new Date(), 2);
-const relevantEntries = (input: SuggestActionLabelsInput) => input.previousEntries.filter(entry => isAfter(parseISO(entry.date), twoMonthsAgo));
-
+const relevantEntriesHelper = (input: SuggestActionLabelsInput) => {
+    const twoMonthsAgo = subMonths(new Date(), 2);
+    return input.previousEntries.filter(entry => isAfter(parseISO(entry.date), twoMonthsAgo));
+}
 
 const prompt = ai.definePrompt({
   name: 'suggestActionLabelsPrompt',
@@ -60,11 +62,13 @@ const prompt = ai.definePrompt({
   {{/each}}
   `,
   config: {
-    // This allows the flow to use the user's API key if provided
+    // This allows the flow to use the correct API key based on settings
     apiKey: '{{apiKey}}',
+    // Pass the active key identifier to the genkit configuration
+    activeApiKey: '{{activeApiKey}}'
   }
 }, {
-    helpers: { relevantEntries }
+    helpers: { relevantEntries: relevantEntriesHelper }
 });
 
 

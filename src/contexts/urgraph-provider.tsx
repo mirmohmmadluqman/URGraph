@@ -283,12 +283,15 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       .filter(a => !a.description.startsWith('Compacted') && isAfter(parseISO(a.date), twoMonthsAgo))
       .map(a => ({ description: a.description, score: a.score, date: a.date }));
     
-    let apiKey: string | undefined = undefined;
-    if (settings.activeApiKey && settings.activeApiKey !== 'main') {
-        apiKey = settings.apiKeys?.find(k => k.name === settings.activeApiKey)?.key;
-    }
+    // Find the active user-provided API key if it's not main or secondary
+    const activeUserKey = settings.apiKeys?.find(k => k.name === settings.activeApiKey);
 
-    return getAiSuggestions({ score, previousEntries, apiKey })
+    return getAiSuggestions({ 
+      score, 
+      previousEntries, 
+      apiKey: activeUserKey?.key,
+      activeApiKey: settings.activeApiKey || 'main',
+    })
   }, [actions, settings.activeApiKey, settings.apiKeys])
 
   const categories = useMemo(() => {
