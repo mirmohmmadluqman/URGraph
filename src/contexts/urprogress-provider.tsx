@@ -5,7 +5,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useState } from 
 import { getAiSuggestions } from '@/lib/actions'
 import type { Action, TimeRange } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
-import { subMonths, subYears, isAfter, startOfDay } from 'date-fns'
+import { subDays, subMonths, subWeeks, subYears, isAfter, startOfDay } from 'date-fns'
 
 interface Goal {
   target: number
@@ -131,6 +131,12 @@ export function URProgressProvider({ children }: { children: ReactNode }) {
     let startDate: Date;
 
     switch (timeRange) {
+      case '1D':
+        startDate = subDays(now, 1);
+        break;
+      case '1W':
+        startDate = subWeeks(now, 1);
+        break;
       case '1M':
         startDate = subMonths(now, 1);
         break;

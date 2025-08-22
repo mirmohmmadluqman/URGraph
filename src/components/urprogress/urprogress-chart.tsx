@@ -12,12 +12,11 @@ import {
 } from 'recharts'
 import { useURProgress } from '@/hooks/use-urprogress'
 import type { TimeRange } from '@/lib/types'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { TrendingUp } from 'lucide-react'
 
-const timeRanges: TimeRange[] = ['1M', '3M', '6M', '1Y', 'ALL']
+const timeRanges: TimeRange[] = ['1D', '1W', '1M', '3M', '6M', '1Y', 'ALL']
 
 export function URProgressChart() {
   const { graphData, timeRange, setTimeRange } = useURProgress()
@@ -70,7 +69,7 @@ export function URProgressChart() {
                 </CardTitle>
                 <CardDescription>Visual representation of your life score over time.</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 flex-wrap">
                 {timeRanges.map(range => (
                     <Button
                     key={range}
