@@ -3,13 +3,17 @@
 import type { ReactNode } from 'react'
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { getAiSuggestions } from '@/lib/actions'
-import type { Action, TimeRange } from '@/lib/types'
+import type { Action, TimeRange, HistoryCompaction } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
-import { subMonths, subYears, isAfter, startOfDay } from 'date-fns'
+import { subMonths, subWeeks, subYears, isAfter, startOfDay, startOfWeek, startOfMonth, format } from 'date-fns'
 
 interface Goal {
   target: number
   achieved: number
+}
+
+interface LifeGraphSettings {
+  historyCompaction: HistoryCompaction;
 }
 
 interface LifeGraphContextType {
@@ -31,6 +35,8 @@ interface LifeGraphContextType {
   setGoal: (goal: Goal) => void
   importData: (data: Action[]) => void;
   categories: string[];
+  settings: LifeGraphSettings;
+  setSettings: (settings: LifeGraphSettings) => void;
 }
 
 export const LifeGraphContext = createContext<LifeGraphContextType | null>(null)
@@ -39,6 +45,7 @@ export function LifeGraphProvider({ children }: { children: ReactNode }) {
   const [actions, setActions] = useState<Action[]>([])
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL')
   const [goal, setGoal] = useState<Goal>({ target: 20, achieved: 0 })
+  const [settings, setSettings] = useState<LifeGraphSettings>({ historyCompaction: 'never' });
   const { toast } = useToast()
 
   useEffect(() => {
@@ -50,6 +57,10 @@ export function LifeGraphProvider({ children }: { children: ReactNode }) {
       const storedGoal = localStorage.getItem('lifegraph:goal');
       if (storedGoal) {
         setGoal(JSON.parse(storedGoal));
+      }
+      const storedSettings = localStorage.getItem('lifegraph:settings');
+      if (storedSettings) {
+        setSettings(JSON.parse(storedSettings));
       }
     } catch (error) {
       console.error("Failed to load from localStorage", error)
@@ -71,7 +82,69 @@ export function LifeGraphProvider({ children }: { children: ReactNode }) {
     } catch (error) {
         console.error("Failed to save goal to localStorage", error);
     }
-}, [goal]);
+  }, [goal]);
+
+  useEffect(() => {
+    try {
+        localStorage.setItem('lifegraph:settings', JSON.stringify(settings));
+    } catch (error) {
+        console.error("Failed to save settings to localStorage", error);
+    }
+  }, [settings]);
+
+  const compactHistory = useCallback(() => {
+    if (settings.historyCompaction === 'never') return;
+
+    const now = new Date();
+    const compactedActions: Action[] = [];
+    const actionsToCompact: Action[] = [];
+
+    let thresholdDate: Date;
+    if (settings.historyCompaction === 'weekly') {
+      thresholdDate = startOfWeek(now, { weekStartsOn: 1 }); // Monday
+    } else { // monthly
+      thresholdDate = startOfMonth(now);
+    }
+
+    const actionsToKeep = actions.filter(action => {
+      const actionDate = new Date(action.date);
+      if (isAfter(actionDate, thresholdDate) || action.description.startsWith('Compacted')) {
+        return true;
+      }
+      actionsToCompact.push(action);
+      return false;
+    });
+
+    if (actionsToCompact.length === 0) return;
+
+    const compactedScore = actionsToCompact.reduce((sum, action) => sum + action.score, 0);
+
+    if (compactedScore !== 0) {
+      const periodFormat = settings.historyCompaction === 'weekly' ? 'yyyy-ww' : 'yyyy-MM';
+      const compactedId = `compacted-${format(actionsToCompact[0].date, periodFormat)}`;
+      const existingCompacted = actionsToKeep.find(a => a.id === compactedId);
+
+      if (existingCompacted) {
+        existingCompacted.score += compactedScore;
+      } else {
+        const newCompactedAction: Action = {
+          id: compactedId,
+          description: `Compacted Score for ${settings.historyCompaction === 'weekly' ? 'week' : 'month'} of ${format(new Date(actionsToCompact[0].date), 'MMM yyyy')}`,
+          score: compactedScore,
+          date: actionsToCompact[0].date, // Keep the date of the first action of the period
+          category: 'COMPACTED'
+        };
+        compactedActions.push(newCompactedAction);
+      }
+    }
+    
+    setActions([...actionsToKeep, ...compactedActions]);
+
+  }, [actions, settings.historyCompaction]);
+
+  useEffect(() => {
+    compactHistory();
+  }, [compactHistory]);
 
 
   const addAction = useCallback((description: string, score: number, category?: string) => {
@@ -116,13 +189,14 @@ export function LifeGraphProvider({ children }: { children: ReactNode }) {
 
   const getSuggestions = useCallback(async (score: number) => {
     const previousEntries = actions
+      .filter(a => !a.description.startsWith('Compacted'))
       .slice(-10)
       .map(a => a.description)
     return getAiSuggestions({ score, previousEntries })
   }, [actions])
 
   const categories = useMemo(() => {
-    const allCategories = actions.map(a => a.category).filter(Boolean) as string[];
+    const allCategories = actions.map(a => a.category).filter(c => Boolean(c) && c !== 'COMPACTED') as string[];
     return [...new Set(allCategories)].sort();
   }, [actions]);
 
@@ -131,6 +205,12 @@ export function LifeGraphProvider({ children }: { children: ReactNode }) {
     let startDate: Date;
 
     switch (timeRange) {
+      case '1D':
+          startDate = subDays(now, 1);
+          break;
+      case '1W':
+          startDate = subWeeks(now, 1);
+          break;
       case '1M':
         startDate = subMonths(now, 1);
         break;
@@ -226,6 +306,8 @@ export function LifeGraphProvider({ children }: { children: ReactNode }) {
     setGoal,
     importData,
     categories,
+    settings,
+    setSettings,
   }
 
   return (

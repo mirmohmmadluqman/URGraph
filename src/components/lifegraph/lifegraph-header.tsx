@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useRef } from 'react';
-import { Download, Upload, Trash2, FileJson, FileText, Image as ImageIcon, Sparkles } from 'lucide-react'
+import { Download, Upload, Trash2, FileJson, FileText, Image as ImageIcon, Sparkles, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,6 +25,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { useLifeGraph } from '@/hooks/use-lifegraph'
 import { useToast } from '@/hooks/use-toast';
 import type { Action } from '@/lib/types';
+import { SettingsDialog } from './settings-dialog';
 
 
 export function LifeGraphHeader() {
@@ -147,6 +148,8 @@ export function LifeGraphHeader() {
             <DropdownMenuItem onClick={() => handleExport('svg')}><ImageIcon className="mr-2 h-4 w-4"/>Save as SVG</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <SettingsDialog />
 
         <AlertDialog>
           <AlertDialogTrigger asChild>
