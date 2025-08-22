@@ -52,20 +52,23 @@ export function URGraphChart() {
   }
   
   const gradientId = "splitColor";
-  const maxScore = Math.max(...graphData.map(d => d.value), 0);
-  const minScore = Math.min(...graphData.map(d => d.value), 0);
   
-  // Ensure y-axis isn't flat if all values are the same
-  const yAxisPadding = Math.max(Math.abs(maxScore - minScore) * 0.1, 5);
-  const yAxisDomain: [number, number] = [
-    Math.floor(minScore - yAxisPadding),
-    Math.ceil(maxScore + yAxisPadding),
-  ];
-  
+  const yAxisDomain = React.useMemo(() => {
+    if (!graphData || graphData.length === 0) {
+      return [-5, 5];
+    }
+    const values = graphData.map(d => d.value);
+    const maxScore = Math.max(...values, 0);
+    const minScore = Math.min(...values, 0);
+    const padding = Math.max((maxScore - minScore) * 0.1, 5);
+    return [Math.floor(minScore - padding), Math.ceil(maxScore + padding)];
+  }, [graphData]);
+
   const gradientOffset = () => {
-    if (yAxisDomain[1] <= 0) return 1;
-    if (yAxisDomain[0] >= 0) return 0;
-    return yAxisDomain[1] / (yAxisDomain[1] - yAxisDomain[0]);
+    const [min, max] = yAxisDomain;
+    if (max <= 0) return 1;
+    if (min >= 0) return 0;
+    return max / (max - min);
   };
   const off = gradientOffset();
 
@@ -97,7 +100,7 @@ export function URGraphChart() {
       <CardContent>
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            {graphData.length > 0 ? (
+            {graphData.length > 1 ? (
                  <AreaChart data={graphData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }} id="urgraph-chart-svg">
                  <defs>
                    <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
@@ -123,8 +126,8 @@ export function URGraphChart() {
             ) : (
                 <div className="flex items-center justify-center h-full">
                     <div className="text-center">
-                        <p className="text-muted-foreground">No data to display.</p>
-                        <p className="text-sm text-muted-foreground/80">Log your first action to see the graph.</p>
+                        <p className="text-muted-foreground">Log at least two different days to see the graph.</p>
+                        <p className="text-sm text-muted-foreground/80">A chart needs more than one point to draw a line.</p>
                     </div>
                 </div>
             )}
