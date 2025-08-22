@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Bot, PlusCircle } from 'lucide-react'
+import { Bot, PlusCircle, ChevronDown } from 'lucide-react'
 import { useURGraph } from '@/hooks/use-urgraph'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -12,6 +12,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Skeleton } from '../ui/skeleton'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+
 
 export function ActionLogger() {
   const [description, setDescription] = useState('')
@@ -19,11 +21,13 @@ export function ActionLogger() {
   const [category, setCategory] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
   const { addAction, getSuggestions, categories } = useURGraph()
 
   const handleGetSuggestions = async (currentScore: number) => {
     setIsLoadingSuggestions(true)
     setSuggestions([])
+    setIsSuggestionsOpen(true); // Open the collapsible when new suggestions are fetched
     const result = await getSuggestions(currentScore)
     setSuggestions(result)
     setIsLoadingSuggestions(false)
@@ -36,6 +40,7 @@ export function ActionLogger() {
     setScore(0)
     setCategory('')
     setSuggestions([])
+    setIsSuggestionsOpen(false)
   }
 
   return (
@@ -99,37 +104,45 @@ export function ActionLogger() {
             />
           </div>
 
-          <div className="space-y-3 min-h-[6rem]">
-            <h4 className="text-sm font-medium flex items-center gap-2 text-muted-foreground">
-                <Bot size={16} /> AI Suggestions
-            </h4>
-            <div className="flex flex-wrap gap-2">
-              {isLoadingSuggestions ? (
-                <>
-                    <Skeleton className="h-6 w-24 rounded-full" />
-                    <Skeleton className="h-6 w-32 rounded-full" />
-                    <Skeleton className="h-6 w-28 rounded-full" />
-                </>
-              ) : (
-                suggestions.map((s, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                  >
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                      onClick={() => setDescription(s)}
+          <Collapsible open={isSuggestionsOpen} onOpenChange={setIsSuggestionsOpen}>
+            <CollapsibleTrigger className="w-full">
+                <div className="flex items-center justify-between text-sm font-medium text-muted-foreground w-full hover:text-foreground transition-colors">
+                    <div className="flex items-center gap-2">
+                        <Bot size={16} /> AI Suggestions
+                    </div>
+                    <ChevronDown className={`h-4 w-4 transition-transform ${isSuggestionsOpen ? 'rotate-180' : ''}`} />
+                </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="py-2">
+                <div className="flex flex-wrap gap-2 min-h-[4rem] items-center">
+                {isLoadingSuggestions ? (
+                    <>
+                        <Skeleton className="h-6 w-24 rounded-full" />
+                        <Skeleton className="h-6 w-32 rounded-full" />
+                        <Skeleton className="h-6 w-28 rounded-full" />
+                    </>
+                ) : (
+                    suggestions.length > 0 ? suggestions.map((s, i) => (
+                    <motion.div
+                        key={i}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.1 }}
                     >
-                      {s}
-                    </Badge>
-                  </motion.div>
-                ))
-              )}
-            </div>
-          </div>
+                        <Badge
+                        variant="outline"
+                        className="cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                        onClick={() => setDescription(s)}
+                        >
+                        {s}
+                        </Badge>
+                    </motion.div>
+                    )) : <p className="text-xs text-muted-foreground">Adjust score to get suggestions.</p>
+                )}
+                </div>
+            </CollapsibleContent>
+          </Collapsible>
+
 
           <Button type="submit" className="w-full" disabled={!description.trim()}>
             <PlusCircle className="mr-2 h-4 w-4" /> Log Action

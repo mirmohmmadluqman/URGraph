@@ -25,7 +25,7 @@ interface URGraphContextType {
   actions: Action[]
   timeRange: TimeRange
   setTimeRange: (range: TimeRange) => void
-  addAction: (description: string, score: number, category?: string) => void
+  addAction: (description: string, score: number, category?: string | null) => void
   deleteAction: (id: string) => void
   resetData: () => void
   getSuggestions: (score: number) => Promise<string[]>
@@ -198,7 +198,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
 }, [settings.historyCompaction, compactHistory, actions, toast, fetchData, isLoading]);
 
 
-  const addAction = useCallback(async (description: string, score: number, category?: string) => {
+  const addAction = useCallback(async (description: string, score: number, category?: string | null) => {
     if (!description.trim()) {
       toast({
         title: "Error",
@@ -216,9 +216,12 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const newId = crypto.randomUUID();
     const actionWithId = { ...newAction, id: newId };
     
-    const newActions = [...actions, actionWithId].sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-    setActions(newActions);
-    localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
+    // Optimistic update
+    setActions(prevActions => {
+      const newActions = [...prevActions, actionWithId].sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+      localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
+      return newActions;
+    });
 
     try {
         await setDoc(doc(db, `users/${USER_ID}/actions`, newId), newAction);
@@ -232,7 +235,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
             return revertedActions;
         });
     }
-  }, [toast, actions])
+  }, [toast])
 
   const deleteAction = useCallback(async (id: string) => {
     const originalActions = actions;
@@ -341,7 +344,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       .filter(a => !a.description.startsWith('Compacted') && isAfter(parseISO(a.date), twoMonthsAgo))
       .map(a => ({ description: a.description, score: a.score, date: a.date }));
     
-    // Find the active user-provided API key if it's not main or secondary
+    // Find the active user-provided API key if it's not a system key
     const activeUserKey = settings.apiKeys?.find(k => k.name === settings.activeApiKey);
 
     return getAiSuggestions({ 
@@ -400,16 +403,23 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     let filteredGraphPoints = timeSeriesPoints.filter(point => 
         isAfter(parseISO(point.date), startOfDay(viewStartDate))
     );
-
-    // If only one action exists, add a starting point to make the chart visible
-    if (filteredGraphPoints.length === 1) {
-        filteredGraphPoints.unshift({ date: format(subDays(parseISO(filteredGraphPoints[0].date), 1), 'yyyy-MM-dd'), value: 0 });
-    }
     
     // Find the score at the beginning of the range to "anchor" the chart
     const scoreBeforeRange = timeSeriesPoints.filter(point => !isAfter(parseISO(point.date), startOfDay(viewStartDate))).pop()?.value || 0;
+
+    // If the first point in our view is after the start date, prepend the "anchor" point.
+    // This connects the visible chart to the previous state.
     if (filteredGraphPoints.length > 0 && isAfter(parseISO(filteredGraphPoints[0].date), viewStartDate)) {
         filteredGraphPoints.unshift({ date: format(viewStartDate, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"), value: scoreBeforeRange });
+    }
+     // If the range is empty but there was a score before it, show the last known score.
+    if (filteredGraphPoints.length === 0 && allActionsSorted.length > 0) {
+        filteredGraphPoints.push({ date: format(viewStartDate, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"), value: scoreBeforeRange });
+        filteredGraphPoints.push({ date: format(new Date(), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"), value: scoreBeforeRange });
+    }
+
+    if (filteredGraphPoints.length === 1) {
+        filteredGraphPoints.unshift({ date: format(subDays(parseISO(filteredGraphPoints[0].date), 1), "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"), value: scoreBeforeRange });
     }
     
     // Final data for the chart, formatting the date for display
@@ -466,6 +476,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     updateGoal({ ...goal, achieved: goalAchieved });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [goalAchieved]);
 
   const value = {
