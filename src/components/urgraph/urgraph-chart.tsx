@@ -11,13 +11,13 @@ import {
   XAxis,
   YAxis,
   ReferenceLine,
-  Line,
 } from 'recharts'
 import { useURGraph } from '@/hooks/use-urgraph'
 import type { TimeRange } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { TrendingUp } from 'lucide-react'
+import { parseISO } from 'date-fns'
 
 const timeRanges: TimeRange[] = ['1D', '1W', '1M', '3M', '6M', '1Y', 'ALL']
 
@@ -27,15 +27,16 @@ export function URGraphChart() {
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0];
-      const prevData = graphData.find((_, i) => graphData[i+1]?.date === label);
-      const dailyChange = prevData ? data.value - prevData.value : data.value;
+      const dataIndex = graphData.findIndex(d => d.date === label);
+      const prevData = dataIndex > 0 ? graphData[dataIndex - 1] : null;
+      const change = prevData ? data.value - prevData.value : data.value;
 
       return (
         <div className="rounded-lg border bg-background/80 backdrop-blur-sm p-2 shadow-sm">
           <div className="grid grid-cols-2 gap-2 items-center">
             <div className="flex flex-col space-y-1">
               <span className="text-[0.70rem] uppercase text-muted-foreground">
-                Date
+                Date & Time
               </span>
               <span className="font-bold text-muted-foreground">
                 {label}
@@ -43,7 +44,7 @@ export function URGraphChart() {
             </div>
             <div className="flex flex-col space-y-1">
               <span className="text-[0.70rem] uppercase text-muted-foreground">
-                Total Score
+                Cumulative Score
               </span>
               <span className="font-bold text-foreground">
                 {data.value > 0 ? `+${data.value}` : data.value}
@@ -51,10 +52,10 @@ export function URGraphChart() {
             </div>
              <div className="flex flex-col space-y-1">
               <span className="text-[0.70rem] uppercase text-muted-foreground">
-                Daily Change
+                Change
               </span>
-              <span className={`font-bold ${dailyChange >= 0 ? 'text-positive' : 'text-negative'}`}>
-                {dailyChange >= 0 ? `+${dailyChange}` : dailyChange}
+              <span className={`font-bold ${change >= 0 ? 'text-positive' : 'text-negative'}`}>
+                {change >= 0 ? `+${change}` : change}
               </span>
             </div>
           </div>
@@ -67,13 +68,27 @@ export function URGraphChart() {
   // Create a new data set for gradient definitions
   const gradientData = React.useMemo(() => {
     if (graphData.length < 2) return [];
-    return graphData.slice(1).map((p, i) => {
-      const prev = graphData[i];
-      return {
-        x: `${(i / (graphData.length - 2)) * 100}%`,
-        color: p.value >= prev.value ? 'hsl(var(--positive))' : 'hsl(var(--negative))'
-      }
-    })
+    
+    // Create a single array of all points for the gradient
+    const stops = graphData.map((p, i) => {
+      if (i === 0) return { offset: '0%', color: 'hsl(var(--positive))' }; // Start color
+      const prev = graphData[i - 1];
+      const offset = `${(i / (graphData.length - 1)) * 100}%`;
+      const color = p.value >= prev.value ? 'hsl(var(--positive))' : 'hsl(var(--negative))';
+      return { offset, color };
+    });
+    
+    // Duplicate the previous color at the same offset to create a hard stop
+    const hardStops = stops.flatMap((stop, i) => {
+        if (i === 0 || i === stops.length - 1) return stop;
+        const prevStop = stops[i-1];
+        if (stop.color !== prevStop.color) {
+            return [{ ...stop, color: prevStop.color}, stop];
+        }
+        return stop;
+    });
+
+    return hardStops;
   }, [graphData]);
 
   const yAxisDomain = React.useMemo(() => {
@@ -119,12 +134,8 @@ export function URGraphChart() {
             {graphData.length > 1 ? (
                  <AreaChart data={graphData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }} id="urgraph-chart-svg">
                  <defs>
-                    <linearGradient id="splitGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="50%" stopColor="hsl(var(--positive))" stopOpacity={0.4} />
-                        <stop offset="50%" stopColor="hsl(var(--negative))" stopOpacity={0.4} />
-                    </linearGradient>
-                    <linearGradient id="dynamicGradient" x1="0" y1="0" x2="1" y2="0">
-                      {gradientData.map((d, i) => <stop key={i} offset={d.x} stopColor={d.color} stopOpacity={0.4} />)}
+                    <linearGradient id="dynamicGradient" x1="0" y1="0" x2="0" y2="1">
+                      {gradientData.map((d, i) => <stop key={i} offset={d.offset} stopColor={d.color} stopOpacity={0.4} />)}
                     </linearGradient>
                     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
@@ -156,8 +167,8 @@ export function URGraphChart() {
             ) : (
                 <div className="flex items-center justify-center h-full">
                     <div className="text-center">
-                        <p className="text-muted-foreground">Log actions on at least two different days to see the graph.</p>
-                        <p className="text-sm text-muted-foreground/80">A chart needs more than one point to draw a line.</p>
+                        <p className="text-muted-foreground">Log your first action to see your graph begin.</p>
+                        <p className="text-sm text-muted-foreground/80">Your chart will grow as you add more entries.</p>
                     </div>
                 </div>
             )}
@@ -168,3 +179,5 @@ export function URGraphChart() {
     </Card>
   )
 }
+
+    

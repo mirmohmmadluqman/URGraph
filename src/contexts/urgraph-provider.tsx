@@ -75,7 +75,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     // It will silently fail if offline, relying on the cached data.
     try {
       // Fetch Actions
-      const actionsQuery = query(collection(db, `users/${USER_ID}/actions`), orderBy("date", "desc"));
+      const actionsQuery = query(collection(db, `users/${USER_ID}/actions`), orderBy("date", "asc"));
       const actionsSnapshot = await getDocs(actionsQuery);
       const fetchedActions = actionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Action));
       setActions(fetchedActions);
@@ -217,7 +217,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const actionWithId = { ...newAction, id: newId };
     
     setActions(prevActions => {
-        const newActions = [...prevActions, actionWithId].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+        const newActions = [...prevActions, actionWithId].sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
         localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
         return newActions;
     });
@@ -389,37 +389,27 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const earliestActionDate = parseISO(allActionsSorted[0].date);
     const viewStartDate = getStartDate(timeRange, earliestActionDate);
 
-    // Group actions by day and sum scores
-    const dailyScores: { [key: string]: number } = {}
-    for (const action of allActionsSorted) {
-      const day = format(startOfDay(parseISO(action.date)), 'yyyy-MM-dd')
-      dailyScores[day] = (dailyScores[day] || 0) + action.score
-    }
-    
-    // Create a continuous timeline from the first action to today
-    const firstDate = earliestActionDate;
-    const allDays = eachDayOfInterval({ start: firstDate, end: endOfDay(new Date()) });
-
-    // Calculate cumulative scores
     let cumulativeScore = 0;
-    const cumulativePoints = allDays.map(date => {
-        const dayKey = format(date, 'yyyy-MM-dd');
-        const dailyChange = dailyScores[dayKey] || 0;
-        cumulativeScore += dailyChange;
+    const timeSeriesPoints = allActionsSorted.map(action => {
+        cumulativeScore += action.score;
         return {
-            date: format(date, 'yyyy-MM-dd'),
+            date: action.date, // Keep the full ISO string for accurate sorting and filtering
             value: cumulativeScore,
         };
     });
 
     // Filter points for the selected time range
-    const filteredGraphPoints = cumulativePoints.filter(point => 
+    const filteredGraphPoints = timeSeriesPoints.filter(point => 
         isAfter(parseISO(point.date), startOfDay(viewStartDate))
     );
 
-    // Final data for the chart
-    const finalGraphData = filteredGraphPoints.map(p => ({ ...p, date: format(parseISO(p.date), 'MMM d') }));
-
+    // If only one action exists, add a starting point to make the chart visible
+    if (filteredGraphPoints.length === 1) {
+        filteredGraphPoints.unshift({ date: format(subDays(parseISO(filteredGraphPoints[0].date), 1), 'yyyy-MM-dd'), value: 0 });
+    }
+    
+    // Final data for the chart, formatting the date for display
+    const finalGraphData = filteredGraphPoints.map(p => ({ ...p, date: format(parseISO(p.date), 'MMM d HH:mm') }));
 
     // Calculate stats
     const today = format(startOfDay(new Date()), 'yyyy-MM-dd');
@@ -471,10 +461,8 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
   }, [actions, timeRange])
 
   useEffect(() => {
-    if (goal.achieved !== goalAchieved) {
-        setGoal(g => ({ ...g, achieved: goalAchieved }));
-    }
-  }, [goal.achieved, goalAchieved]);
+    setGoal(g => ({ ...g, achieved: goalAchieved }));
+  }, [goalAchieved]);
 
   const value = {
     actions,
@@ -500,3 +488,5 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     </URGraphContext.Provider>
   )
 }
+
+    
