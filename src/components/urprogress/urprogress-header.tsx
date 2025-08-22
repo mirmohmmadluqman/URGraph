@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useRef } from 'react';
-import { Download, Upload, Trash2, FileJson, FileText, Image as ImageIcon } from 'lucide-react'
+import { Download, Upload, Trash2, FileJson, FileText, Image as ImageIcon, Settings } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,6 +25,7 @@ import { ThemeToggle } from '@/components/theme-toggle'
 import { useURProgress } from '@/hooks/use-urprogress'
 import { useToast } from '@/hooks/use-toast';
 import type { Action } from '@/lib/types';
+import { SettingsDialog } from './settings-dialog';
 import { URProgressLogo } from './urprogress-logo';
 
 
@@ -148,6 +149,8 @@ export function URProgressHeader() {
             <DropdownMenuItem onClick={() => handleExport('svg')}><ImageIcon className="mr-2 h-4 w-4"/>Save as SVG</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <SettingsDialog />
 
         <AlertDialog>
           <AlertDialogTrigger asChild>

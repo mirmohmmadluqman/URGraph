@@ -1,10 +1,10 @@
-import { LifeGraphPage } from "@/components/lifegraph/lifegraph-page";
-import { LifeGraphProvider } from "@/contexts/lifegraph-provider";
+import { URProgressPage } from "@/components/urprogress/urprogress-page";
+import { URProgressProvider } from "@/contexts/urprogress-provider";
 
 export default function Home() {
   return (
-    <LifeGraphProvider>
-      <LifeGraphPage />
-    </LifeGraphProvider>
+    <URProgressProvider>
+      <URProgressPage />
+    </URProgressProvider>
   );
 }
