@@ -12,6 +12,9 @@ import { collection, doc, getDocs, writeBatch, query, orderBy, getDoc, setDoc, d
 
 // Using a static user ID for now. In a real app, this would be the authenticated user's ID.
 const USER_ID = "static_user";
+const ACTIONS_CACHE_KEY = 'urgraph-actions';
+const GOAL_CACHE_KEY = 'urgraph-goal';
+const SETTINGS_CACHE_KEY = 'urgraph-settings';
 
 interface Goal {
   target: number
@@ -51,6 +54,22 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast()
 
+  useEffect(() => {
+    // Load from cache first
+    try {
+        const cachedActions = localStorage.getItem(ACTIONS_CACHE_KEY);
+        if (cachedActions) setActions(JSON.parse(cachedActions));
+        
+        const cachedGoal = localStorage.getItem(GOAL_CACHE_KEY);
+        if (cachedGoal) setGoal(JSON.parse(cachedGoal));
+
+        const cachedSettings = localStorage.getItem(SETTINGS_CACHE_KEY);
+        if (cachedSettings) setSettings(JSON.parse(cachedSettings));
+    } catch (error) {
+        console.warn("Failed to load from cache", error);
+    }
+  }, []);
+
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -59,21 +78,30 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       const actionsSnapshot = await getDocs(actionsQuery);
       const fetchedActions = actionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Action));
       setActions(fetchedActions);
+      localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(fetchedActions));
+
 
       // Fetch Goal
       const goalDoc = await getDoc(doc(db, `users/${USER_ID}/config/goal`));
       if (goalDoc.exists()) {
-        setGoal(goalDoc.data() as Goal);
+        const fetchedGoal = goalDoc.data() as Goal;
+        setGoal(fetchedGoal);
+        localStorage.setItem(GOAL_CACHE_KEY, JSON.stringify(fetchedGoal));
       }
 
       // Fetch Settings
       const settingsDoc = await getDoc(doc(db, `users/${USER_ID}/config/settings`));
       if (settingsDoc.exists()) {
-        setSettings(prev => ({...prev, ...settingsDoc.data()}));
+        const fetchedSettings = settingsDoc.data();
+        setSettings(prev => {
+            const newSettings = {...prev, ...fetchedSettings};
+            localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings));
+            return newSettings;
+        });
       }
     } catch (error) {
       console.error("Failed to load from Firestore", error);
-      toast({ title: "Error", description: "Could not load your data from the cloud.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not load your data from the cloud. Displaying cached data.", variant: "destructive" });
     }
     setIsLoading(false);
   }, [toast]);
@@ -142,6 +170,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
         if (toDelete.length > 0) {
             console.log(`Compacting ${toDelete.length} actions.`);
             setActions(compacted);
+            localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(compacted));
             try {
                 const batch = writeBatch(db);
                 toDelete.forEach(id => {
@@ -181,26 +210,36 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     }
     const newId = crypto.randomUUID();
     const actionWithId = { ...newAction, id: newId };
-    setActions(prev => [...prev, actionWithId].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
+    
+    const newActions = [...actions, actionWithId].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+    setActions(newActions);
+    localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
 
     try {
         await setDoc(doc(db, `users/${USER_ID}/actions`, newId), newAction);
     } catch (error) {
         console.error("Failed to save action:", error);
         toast({ title: "Sync Error", description: "Could not save action to the cloud.", variant: "destructive" });
-        setActions(prev => prev.filter(a => a.id !== newId)); // Revert optimistic update
+        // Revert optimistic update
+        const revertedActions = actions.filter(a => a.id !== newId);
+        setActions(revertedActions);
+        localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(revertedActions));
     }
-  }, [toast])
+  }, [toast, actions])
 
   const deleteAction = useCallback(async (id: string) => {
     const originalActions = actions;
-    setActions(prev => prev.filter(action => action.id !== id))
+    const newActions = originalActions.filter(action => action.id !== id);
+    setActions(newActions);
+    localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
+
     try {
         await deleteDoc(doc(db, `users/${USER_ID}/actions`, id));
     } catch (error) {
         console.error("Failed to delete action:", error);
         toast({ title: "Sync Error", description: "Could not delete action from the cloud.", variant: "destructive" });
         setActions(originalActions);
+        localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(originalActions));
     }
   }, [actions, toast])
 
@@ -209,6 +248,9 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const originalGoal = goal;
     setActions([]);
     setGoal({ target: 20, achieved: 0 });
+    localStorage.removeItem(ACTIONS_CACHE_KEY);
+    localStorage.removeItem(GOAL_CACHE_KEY);
+
     try {
       const actionsSnapshot = await getDocs(collection(db, `users/${USER_ID}/actions`));
       const batch = writeBatch(db);
@@ -224,12 +266,15 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
         toast({ title: "Sync Error", description: "Could not reset data in the cloud.", variant: "destructive" });
         setActions(originalActions);
         setGoal(originalGoal);
+        localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(originalActions));
+        localStorage.setItem(GOAL_CACHE_KEY, JSON.stringify(originalGoal));
     }
   }, [toast, actions, goal])
 
   const importData = useCallback(async (data: Action[]) => {
     const originalActions = actions;
     setActions(data);
+    localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(data));
     try {
         const batch = writeBatch(db);
         // Clear existing actions first
@@ -249,30 +294,35 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
         console.error("Failed to import data:", error);
         toast({ title: "Sync Error", description: "Could not save imported data to the cloud.", variant: "destructive" });
         setActions(originalActions);
+        localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(originalActions));
     }
   }, [toast, actions]);
 
   const updateGoal = useCallback(async (newGoal: Goal) => {
       const originalGoal = goal;
       setGoal(newGoal);
+      localStorage.setItem(GOAL_CACHE_KEY, JSON.stringify(newGoal));
       try {
         await setDoc(doc(db, `users/${USER_ID}/config/goal`), newGoal);
       } catch (error) {
         console.error("Failed to save goal:", error);
         toast({ title: "Sync Error", description: "Could not save goal to the cloud.", variant: "destructive" });
         setGoal(originalGoal);
+        localStorage.setItem(GOAL_CACHE_KEY, JSON.stringify(originalGoal));
       }
   }, [goal, toast]);
 
   const updateSettings = useCallback(async (newSettings: URGraphSettings) => {
     const originalSettings = settings;
     setSettings(newSettings);
+    localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(newSettings));
     try {
       await setDoc(doc(db, `users/${USER_ID}/config/settings`), newSettings, { merge: true });
     } catch (error) {
       console.error("Failed to save settings:", error);
       toast({ title: "Sync Error", description: "Could not save settings to the cloud.", variant: "destructive" });
       setSettings(originalSettings);
+      localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(originalSettings));
     }
 }, [settings, toast]);
 
@@ -353,7 +403,11 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const dailyScore = todayActions.reduce((sum, a) => sum + a.score, 0);
 
     const scoreForGoal = actions.reduce((sum, a) => sum + a.score, 0);
-    setGoal(g => ({ ...g, achieved: scoreForGoal }));
+    // This is a side effect in a memo, which is not ideal. But for now it works.
+    // A better approach would be to move this logic into a useEffect that depends on `actions`.
+    if (goal.achieved !== scoreForGoal) {
+        setGoal(g => ({ ...g, achieved: scoreForGoal }));
+    }
 
     // Streak calculation
     const allDaysScores: { [key: string]: number } = {}
@@ -390,7 +444,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     }
 
     return { graphData: graphPoints, stats: newStats }
-  }, [filteredActions, actions])
+  }, [filteredActions, actions, goal.achieved])
 
   const value = {
     actions: filteredActions,
