@@ -258,11 +258,10 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const today = startOfDay(new Date()).toISOString().split('T')[0];
     const todayActions = actions.filter(a => startOfDay(parseISO(a.date)).toISOString().split('T')[0] === today);
 
-    let cumulativeScore = 0
     const graphPoints = Object.entries(dailyScores).map(([date, dailyDelta]) => {
-      cumulativeScore += dailyDelta
-      return { date, value: cumulativeScore, dailyDelta }
-    })
+      // The `value` for the chart is now the daily net score.
+      return { date, value: dailyDelta, dailyDelta: dailyDelta };
+    });
 
     const avgScore = filteredActions.length > 0
       ? filteredActions.reduce((sum, a) => sum + a.score, 0) / filteredActions.length

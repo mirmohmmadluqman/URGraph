@@ -38,18 +38,10 @@ export function URGraphChart() {
             </div>
             <div className="flex flex-col space-y-1">
               <span className="text-[0.70rem] uppercase text-muted-foreground">
-                Score
+                Total Score
               </span>
               <span className="font-bold text-foreground">
-                {data.value}
-              </span>
-            </div>
-             <div className="flex flex-col space-y-1">
-              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                Daily +/-
-              </span>
-              <span className={`font-bold ${data.dailyDelta > 0 ? 'text-positive' : data.dailyDelta < 0 ? 'text-negative' : 'text-muted-foreground'}`}>
-                {data.dailyDelta > 0 ? `+${data.dailyDelta}` : data.dailyDelta}
+                {data.value > 0 ? `+${data.value}` : data.value}
               </span>
             </div>
           </div>
@@ -64,7 +56,7 @@ export function URGraphChart() {
   const minScore = Math.min(...graphData.map(d => d.value), 0);
   
   // Ensure y-axis isn't flat if all values are the same
-  const yAxisPadding = Math.max(Math.abs(maxScore - minScore) * 0.1, 1);
+  const yAxisPadding = Math.max(Math.abs(maxScore - minScore) * 0.1, 5);
   const yAxisDomain: [number, number] = [
     Math.floor(minScore - yAxisPadding),
     Math.ceil(maxScore + yAxisPadding),
@@ -86,7 +78,7 @@ export function URGraphChart() {
                     <TrendingUp className="text-primary" />
                     Your Progress
                 </CardTitle>
-                <CardDescription>Visual representation of your life score over time.</CardDescription>
+                <CardDescription>Visual representation of your daily score over time.</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
                 {timeRanges.map(range => (
