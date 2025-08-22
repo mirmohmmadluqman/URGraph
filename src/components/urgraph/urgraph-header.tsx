@@ -26,7 +26,7 @@ import { useURGraph } from '@/hooks/use-urgraph'
 import { useToast } from '@/hooks/use-toast';
 import type { Action } from '@/lib/types';
 import { SettingsDialog } from './settings-dialog';
-import Image from 'next/image';
+import { URGraphLogo } from './logo';
 
 
 export function URGraphHeader() {
@@ -53,7 +53,6 @@ export function URGraphHeader() {
       ].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
       link.href = url;
       link.download = 'urgraph_data.csv';
       link.click();
@@ -127,7 +126,9 @@ export function URGraphHeader() {
   return (
     <header className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10 backdrop-blur-sm bg-white/30 dark:bg-black/30 sticky top-0 z-10">
       <div className="flex items-center gap-3">
-        <Image src="/logo.png" alt="URGraph Logo" width={32} height={32} className="rounded-full" />
+        <div className="w-8 h-8 rounded-full overflow-hidden">
+            <URGraphLogo />
+        </div>
         <h1 className="text-2xl font-bold tracking-tighter">URGraph</h1>
       </div>
       <div className="flex items-center gap-2">
