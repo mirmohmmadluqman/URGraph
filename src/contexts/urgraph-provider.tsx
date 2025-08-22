@@ -211,16 +211,14 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       description,
       score,
       date: new Date().toISOString(),
-      category: category?.trim() || undefined
+      category: category?.trim() || null
     }
     const newId = crypto.randomUUID();
     const actionWithId = { ...newAction, id: newId };
     
-    setActions(prevActions => {
-        const newActions = [...prevActions, actionWithId].sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
-        localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
-        return newActions;
-    });
+    const newActions = [...actions, actionWithId].sort((a,b) => parseISO(a.date).getTime() - parseISO(b.date).getTime());
+    setActions(newActions);
+    localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
 
     try {
         await setDoc(doc(db, `users/${USER_ID}/actions`, newId), newAction);
@@ -234,7 +232,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
             return revertedActions;
         });
     }
-  }, [toast])
+  }, [toast, actions])
 
   const deleteAction = useCallback(async (id: string) => {
     const originalActions = actions;
@@ -399,13 +397,19 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     });
 
     // Filter points for the selected time range
-    const filteredGraphPoints = timeSeriesPoints.filter(point => 
+    let filteredGraphPoints = timeSeriesPoints.filter(point => 
         isAfter(parseISO(point.date), startOfDay(viewStartDate))
     );
 
     // If only one action exists, add a starting point to make the chart visible
     if (filteredGraphPoints.length === 1) {
         filteredGraphPoints.unshift({ date: format(subDays(parseISO(filteredGraphPoints[0].date), 1), 'yyyy-MM-dd'), value: 0 });
+    }
+    
+    // Find the score at the beginning of the range to "anchor" the chart
+    const scoreBeforeRange = timeSeriesPoints.filter(point => !isAfter(parseISO(point.date), startOfDay(viewStartDate))).pop()?.value || 0;
+    if (filteredGraphPoints.length > 0 && isAfter(parseISO(filteredGraphPoints[0].date), viewStartDate)) {
+        filteredGraphPoints.unshift({ date: format(viewStartDate, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"), value: scoreBeforeRange });
     }
     
     // Final data for the chart, formatting the date for display
@@ -461,7 +465,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
   }, [actions, timeRange])
 
   useEffect(() => {
-    setGoal(g => ({ ...g, achieved: goalAchieved }));
+    updateGoal({ ...goal, achieved: goalAchieved });
   }, [goalAchieved]);
 
   const value = {
@@ -488,5 +492,3 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     </URGraphContext.Provider>
   )
 }
-
-    
