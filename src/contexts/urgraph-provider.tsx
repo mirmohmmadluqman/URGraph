@@ -6,7 +6,7 @@ import React, { createContext, useCallback, useEffect, useMemo, useState } from 
 import { getAiSuggestions } from '@/lib/actions'
 import type { Action, TimeRange, HistoryCompaction, URGraphSettings } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
-import { subDays, subMonths, subWeeks, subYears, isAfter, startOfDay, startOfWeek, startOfMonth, format, parseISO } from 'date-fns'
+import { subDays, subMonths, subWeeks, subYears, isAfter, startOfDay, startOfWeek, startOfMonth, format, parseISO, eachDayOfInterval, endOfDay } from 'date-fns'
 import { db } from '@/lib/firebase'
 import { collection, doc, getDocs, writeBatch, query, orderBy, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 
@@ -29,7 +29,7 @@ interface URGraphContextType {
   deleteAction: (id: string) => void
   resetData: () => void
   getSuggestions: (score: number) => Promise<string[]>
-  graphData: { date: string; value: number; dailyDelta: number }[]
+  graphData: { date: string; value: number; }[]
   stats: {
     dailyScore: number
     dailyActions: number
@@ -355,75 +355,90 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     return [...new Set(allCategories)].sort();
   }, [actions]);
 
-  const filteredActions = useMemo(() => {
-    const now = new Date()
-    let startDate: Date;
-
-    switch (timeRange) {
-      case '1D':
-          startDate = subDays(now, 1);
-          break;
-      case '1W':
-          startDate = subWeeks(now, 1);
-          break;
-      case '1M':
-        startDate = subMonths(now, 1);
-        break;
-      case '3M':
-        startDate = subMonths(now, 3);
-        break;
-      case '6M':
-        startDate = subMonths(now, 6);
-        break;
-      case '1Y':
-        startDate = subYears(now, 1);
-        break;
-      case 'ALL':
-      default:
-        return actions;
-    }
-    return actions.filter(action => isAfter(parseISO(action.date), startDate));
-  }, [actions, timeRange])
+  const getStartDate = (range: TimeRange, earliestDate: Date | null): Date => {
+      const now = new Date();
+      switch (range) {
+        case '1D': return subDays(now, 1);
+        case '1W': return subWeeks(now, 1);
+        case '1M': return subMonths(now, 1);
+        case '3M': return subMonths(now, 3);
+        case '6M': return subMonths(now, 6);
+        case '1Y': return subYears(now, 1);
+        case 'ALL':
+        default: return earliestDate || subYears(now, 10);
+      }
+  };
 
   const { graphData, stats } = useMemo(() => {
-    const sortedActions = [...filteredActions].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
-    const dailyScores: { [key: string]: number } = {}
+    const allActionsSorted = [...actions].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+    if (allActionsSorted.length === 0) {
+        return { 
+            graphData: [], 
+            stats: { dailyScore: 0, dailyActions: 0, avgScore: 0, streak: 0 } 
+        };
+    }
     
-    for (const action of sortedActions) {
-      const day = startOfDay(parseISO(action.date)).toISOString().split('T')[0]
+    const earliestActionDate = parseISO(allActionsSorted[0].date);
+    const viewStartDate = getStartDate(timeRange, earliestActionDate);
+
+    // Group actions by day and sum scores
+    const dailyScores: { [key: string]: number } = {}
+    for (const action of allActionsSorted) {
+      const day = format(startOfDay(parseISO(action.date)), 'yyyy-MM-dd')
       dailyScores[day] = (dailyScores[day] || 0) + action.score
     }
+    
+    // Create a continuous timeline from the first action to today
+    const firstDate = earliestActionDate;
+    const allDays = eachDayOfInterval({ start: firstDate, end: endOfDay(new Date()) });
 
-    const today = startOfDay(new Date()).toISOString().split('T')[0];
-    const todayActions = actions.filter(a => startOfDay(parseISO(a.date)).toISOString().split('T')[0] === today);
-
-    const graphPoints = Object.entries(dailyScores).map(([date, dailyDelta]) => {
-      // The `value` for the chart is now the daily net score.
-      return { date, value: dailyDelta, dailyDelta: dailyDelta };
+    // Calculate cumulative scores
+    let cumulativeScore = 0;
+    const cumulativePoints = allDays.map(date => {
+        const dayKey = format(date, 'yyyy-MM-dd');
+        const dailyChange = dailyScores[dayKey] || 0;
+        cumulativeScore += dailyChange;
+        return {
+            date: format(date, 'yyyy-MM-dd'),
+            value: cumulativeScore,
+        };
     });
 
-    const avgScore = filteredActions.length > 0
-      ? filteredActions.reduce((sum, a) => sum + a.score, 0) / filteredActions.length
+    // Filter points for the selected time range
+    const filteredGraphPoints = cumulativePoints.filter(point => 
+        isAfter(parseISO(point.date), startOfDay(viewStartDate))
+    );
+
+    // Final data for the chart
+    const finalGraphData = filteredGraphPoints.map(p => ({ ...p, date: format(parseISO(p.date), 'MMM d') }));
+
+
+    // Calculate stats
+    const today = format(startOfDay(new Date()), 'yyyy-MM-dd');
+    const todayActions = actions.filter(a => format(startOfDay(parseISO(a.date)), 'yyyy-MM-dd') === today);
+
+    const filteredActionsForStats = actions.filter(action => isAfter(parseISO(action.date), viewStartDate));
+    const avgScore = filteredActionsForStats.length > 0
+      ? filteredActionsForStats.reduce((sum, a) => sum + a.score, 0) / filteredActionsForStats.length
       : 0
     
     const dailyScore = todayActions.reduce((sum, a) => sum + a.score, 0);
 
     const scoreForGoal = actions.reduce((sum, a) => sum + a.score, 0);
     // This is a side effect in a memo, which is not ideal. But for now it works.
-    // A better approach would be to move this logic into a useEffect that depends on `actions`.
     if (goal.achieved !== scoreForGoal) {
         setGoal(g => ({ ...g, achieved: scoreForGoal }));
     }
 
     // Streak calculation
-    const allDaysScores: { [key: string]: number } = {}
+    const allDaysScoresForStreak: { [key: string]: number } = {}
     for (const action of actions) {
-        const day = startOfDay(parseISO(action.date)).toISOString().split('T')[0]
-        allDaysScores[day] = (allDaysScores[day] || 0) + action.score
+        const day = format(startOfDay(parseISO(action.date)), 'yyyy-MM-dd')
+        allDaysScoresForStreak[day] = (allDaysScoresForStreak[day] || 0) + action.score
     }
 
     const daysWithPositiveScore = new Set(
-        Object.entries(allDaysScores)
+        Object.entries(allDaysScoresForStreak)
             .filter(([, score]) => score > 0)
             .map(([date]) => date)
     );
@@ -431,16 +446,15 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     let currentStreak = 0;
     if (daysWithPositiveScore.size > 0) {
         let currentDate = startOfDay(new Date());
-        if(!daysWithPositiveScore.has(currentDate.toISOString().split('T')[0])) {
+        if(!daysWithPositiveScore.has(format(currentDate, 'yyyy-MM-dd'))) {
           currentDate.setDate(currentDate.getDate() -1);
         }
         
-        while (daysWithPositiveScore.has(currentDate.toISOString().split('T')[0])) {
+        while (daysWithPositiveScore.has(format(currentDate, 'yyyy-MM-dd'))) {
             currentStreak++;
             currentDate.setDate(currentDate.getDate() - 1);
         }
     }
-
 
     const newStats = {
       dailyScore,
@@ -449,8 +463,8 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       streak: currentStreak,
     }
 
-    return { graphData: graphPoints, stats: newStats }
-  }, [filteredActions, actions, goal.achieved])
+    return { graphData: finalGraphData, stats: newStats }
+  }, [actions, timeRange, goal.achieved])
 
   const value = {
     actions,
@@ -476,5 +490,3 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     </URGraphContext.Provider>
   )
 }
-
-    
