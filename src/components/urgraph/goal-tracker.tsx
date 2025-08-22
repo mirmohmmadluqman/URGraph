@@ -3,14 +3,14 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { CheckCircle, Flag, Pencil } from 'lucide-react'
-import { useURProgress } from '@/hooks/use-urprogress'
+import { useURGraph } from '@/hooks/use-urgraph'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Input } from '../ui/input'
 
 export function GoalTracker() {
-  const { goal, setGoal } = useURProgress()
+  const { goal, setGoal } = useURGraph()
   const [isEditing, setIsEditing] = useState(false)
   const [newTarget, setNewTarget] = useState(goal.target)
 

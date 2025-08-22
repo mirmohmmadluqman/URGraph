@@ -4,7 +4,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: 'URProgress',
+  title: 'URGraph',
   description: 'Track your progress, visualize your success.',
 };
 
@@ -22,7 +22,7 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <ThemeProvider storageKey="urprogress-theme">
+        <ThemeProvider storageKey="urgraph-theme">
           {children}
           <Toaster />
         </ThemeProvider>

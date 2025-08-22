@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react'
 import { format, parseISO } from 'date-fns'
 import { Trash2, Search, ArrowUp, ArrowDown } from 'lucide-react'
-import { useURProgress } from '@/hooks/use-urprogress'
+import { useURGraph } from '@/hooks/use-urgraph'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -36,7 +36,7 @@ import {
   } from "@/components/ui/select"
 
 export function ActionHistory() {
-  const { actions, deleteAction, categories } = useURProgress()
+  const { actions, deleteAction, categories } = useURGraph()
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [sortConfig, setSortConfig] = useState<{ key: 'date' | 'score' | 'category'; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });

@@ -12,11 +12,11 @@ interface Goal {
   achieved: number
 }
 
-interface URProgressSettings {
+interface URGraphSettings {
   historyCompaction: HistoryCompaction;
 }
 
-interface URProgressContextType {
+interface URGraphContextType {
   actions: Action[]
   timeRange: TimeRange
   setTimeRange: (range: TimeRange) => void
@@ -35,30 +35,30 @@ interface URProgressContextType {
   setGoal: (goal: Goal) => void
   importData: (data: Action[]) => void;
   categories: string[];
-  settings: URProgressSettings;
-  setSettings: (settings: URProgressSettings) => void;
+  settings: URGraphSettings;
+  setSettings: (settings: URGraphSettings) => void;
 }
 
-export const URProgressContext = createContext<URProgressContextType | null>(null)
+export const URGraphContext = createContext<URGraphContextType | null>(null)
 
-export function URProgressProvider({ children }: { children: ReactNode }) {
+export function URGraphProvider({ children }: { children: ReactNode }) {
   const [actions, setActions] = useState<Action[]>([])
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL')
   const [goal, setGoal] = useState<Goal>({ target: 20, achieved: 0 })
-  const [settings, setSettings] = useState<URProgressSettings>({ historyCompaction: 'never' });
+  const [settings, setSettings] = useState<URGraphSettings>({ historyCompaction: 'never' });
   const { toast } = useToast()
 
   useEffect(() => {
     try {
-      const storedActions = localStorage.getItem('urprogress:actions')
+      const storedActions = localStorage.getItem('urgraph:actions')
       if (storedActions) {
         setActions(JSON.parse(storedActions))
       }
-      const storedGoal = localStorage.getItem('urprogress:goal');
+      const storedGoal = localStorage.getItem('urgraph:goal');
       if (storedGoal) {
         setGoal(JSON.parse(storedGoal));
       }
-      const storedSettings = localStorage.getItem('urprogress:settings');
+      const storedSettings = localStorage.getItem('urgraph:settings');
       if (storedSettings) {
         setSettings(JSON.parse(storedSettings));
       }
@@ -69,7 +69,7 @@ export function URProgressProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem('urprogress:actions', JSON.stringify(actions))
+      localStorage.setItem('urgraph:actions', JSON.stringify(actions))
     } catch (error)
     {
       console.error("Failed to save to localStorage", error)
@@ -78,7 +78,7 @@ export function URProgressProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-        localStorage.setItem('urprogress:goal', JSON.stringify(goal));
+        localStorage.setItem('urgraph:goal', JSON.stringify(goal));
     } catch (error) {
         console.error("Failed to save goal to localStorage", error);
     }
@@ -86,7 +86,7 @@ export function URProgressProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     try {
-        localStorage.setItem('urprogress:settings', JSON.stringify(settings));
+        localStorage.setItem('urgraph:settings', JSON.stringify(settings));
     } catch (error) {
         console.error("Failed to save settings to localStorage", error);
     }
@@ -175,7 +175,7 @@ export function URProgressProvider({ children }: { children: ReactNode }) {
     setGoal({ target: 20, achieved: 0 });
     toast({
       title: "Data Reset",
-      description: "All your URProgress data has been cleared.",
+      description: "All your URGraph data has been cleared.",
     })
   }, [toast])
 
@@ -311,8 +311,8 @@ export function URProgressProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <URProgressContext.Provider value={value}>
+    <URGraphContext.Provider value={value}>
       {children}
-    </URProgressContext.Provider>
+    </URGraphContext.Provider>
   )
 }

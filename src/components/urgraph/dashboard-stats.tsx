@@ -3,7 +3,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { TrendingUp, Target, Star, CalendarDays } from 'lucide-react'
-import { useURProgress } from '@/hooks/use-urprogress'
+import { useURGraph } from '@/hooks/use-urgraph'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 
@@ -39,7 +39,7 @@ const StatCard = ({ icon, title, value, unit, tooltip }: { icon: React.ReactNode
 )
 
 export function DashboardStats() {
-  const { stats } = useURProgress()
+  const { stats } = useURGraph()
 
   return (
     <div>

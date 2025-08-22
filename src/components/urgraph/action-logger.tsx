@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Bot, PlusCircle } from 'lucide-react'
-import { useURProgress } from '@/hooks/use-urprogress'
+import { useURGraph } from '@/hooks/use-urgraph'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,7 +19,7 @@ export function ActionLogger() {
   const [category, setCategory] = useState('')
   const [suggestions, setSuggestions] = useState<string[]>([])
   const [isLoadingSuggestions, setIsLoadingSuggestions] = useState(false)
-  const { addAction, getSuggestions, categories } = useURProgress()
+  const { addAction, getSuggestions, categories } = useURGraph()
 
   const handleGetSuggestions = async (currentScore: number) => {
     setIsLoadingSuggestions(true)
@@ -45,7 +45,7 @@ export function ActionLogger() {
           <PlusCircle className="text-primary" />
           Log New Action
         </CardTitle>
-        <CardDescription>Add a new entry to your URProgress.</CardDescription>
+        <CardDescription>Add a new entry to your URGraph.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">

@@ -2,7 +2,7 @@
 
 import React from 'react'
 import { Settings } from 'lucide-react'
-import { useURProgress } from '@/hooks/use-urprogress'
+import { useURGraph } from '@/hooks/use-urgraph'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -17,7 +17,7 @@ import { RadioGroup, RadioGroupItem } from '../ui/radio-group'
 import type { HistoryCompaction } from '@/lib/types'
 
 export function SettingsDialog() {
-  const { settings, setSettings } = useURProgress()
+  const { settings, setSettings } = useURGraph()
 
   const handleCompactionChange = (value: string) => {
     setSettings({ ...settings, historyCompaction: value as HistoryCompaction });

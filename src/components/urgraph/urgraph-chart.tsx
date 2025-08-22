@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { useURProgress } from '@/hooks/use-urprogress'
+import { useURGraph } from '@/hooks/use-urgraph'
 import type { TimeRange } from '@/lib/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -19,8 +19,8 @@ import { TrendingUp } from 'lucide-react'
 
 const timeRanges: TimeRange[] = ['1D', '1W', '1M', '3M', '6M', '1Y', 'ALL']
 
-export function URProgressChart() {
-  const { graphData, timeRange, setTimeRange } = useURProgress()
+export function URGraphChart() {
+  const { graphData, timeRange, setTimeRange } = useURGraph()
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -88,7 +88,7 @@ export function URProgressChart() {
         <div className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             {graphData.length > 0 ? (
-                 <AreaChart data={graphData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }} id="urprogress-chart-svg">
+                 <AreaChart data={graphData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }} id="urgraph-chart-svg">
                  <defs>
                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                      <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8} />

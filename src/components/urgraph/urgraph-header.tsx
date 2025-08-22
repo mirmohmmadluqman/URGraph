@@ -22,15 +22,15 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 import { ThemeToggle } from '@/components/theme-toggle'
-import { useURProgress } from '@/hooks/use-urprogress'
+import { useURGraph } from '@/hooks/use-urgraph'
 import { useToast } from '@/hooks/use-toast';
 import type { Action } from '@/lib/types';
 import { SettingsDialog } from './settings-dialog';
-import { URProgressLogo } from './urprogress-logo';
+import { URGraphLogo } from './urgraph-logo';
 
 
-export function URProgressHeader() {
-  const { resetData, actions, importData } = useURProgress();
+export function URGraphHeader() {
+  const { resetData, actions, importData } = useURGraph();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,7 +41,7 @@ export function URProgressHeader() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'urprogress_data.json';
+      link.download = 'urgraph_data.json';
       link.click();
       URL.revokeObjectURL(url);
     } else if (format === 'csv') {
@@ -55,11 +55,11 @@ export function URProgressHeader() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'urprogress_data.csv';
+      link.download = 'urgraph_data.csv';
       link.click();
       URL.revokeObjectURL(url);
     } else {
-        const svg = document.querySelector('#urprogress-chart-svg');
+        const svg = document.querySelector('#urgraph-chart-svg');
         if (!svg) {
             toast({ title: "Error", description: "Chart not found.", variant: 'destructive'});
             return;
@@ -71,7 +71,7 @@ export function URProgressHeader() {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = 'urprogress.svg';
+            link.download = 'urgraph.svg';
             link.click();
             URL.revokeObjectURL(url);
         } else if (format === 'png') {
@@ -86,7 +86,7 @@ export function URProgressHeader() {
                 const pngUrl = canvas.toDataURL('image/png');
                 const link = document.createElement('a');
                 link.href = pngUrl;
-                link.download = 'urprogress.png';
+                link.download = 'urgraph.png';
                 link.click();
             };
             img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
@@ -127,8 +127,8 @@ export function URProgressHeader() {
   return (
     <header className="flex items-center justify-between p-4 border-b border-black/10 dark:border-white/10 backdrop-blur-sm bg-white/30 dark:bg-black/30 sticky top-0 z-10">
       <div className="flex items-center gap-2">
-        <URProgressLogo className="w-8 h-8 text-primary"/>
-        <h1 className="text-2xl font-bold tracking-tighter">URProgress</h1>
+        <URGraphLogo className="w-8 h-8 text-primary"/>
+        <h1 className="text-2xl font-bold tracking-tighter">URGraph</h1>
       </div>
       <div className="flex items-center gap-2">
         <input type="file" ref={fileInputRef} onChange={handleFileChange} accept=".json" className="hidden" />
