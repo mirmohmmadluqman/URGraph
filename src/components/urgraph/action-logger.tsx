@@ -84,7 +84,7 @@ export function ActionLogger() {
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 className="font-bold text-2xl"
-                style={{ color: `hsl(var(--${score > 0 ? 'positive' : score < 0 ? 'negative' : 'muted-foreground'}))` }}
+                style={{ color: score > 0 ? `hsl(var(--positive))` : score < 0 ? `hsl(var(--negative))` : `hsl(var(--muted-foreground))` }}
               >
                 {score > 0 ? `+${score}` : score}
               </motion.div>

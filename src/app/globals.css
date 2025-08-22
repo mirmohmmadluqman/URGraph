@@ -8,27 +8,27 @@ body {
 
 @layer base {
   :root {
-    --background: 204 100% 98%; /* Lighter grey/white */
-    --foreground: 224 71% 4%;
-    --card: 204 100% 97%;
-    --card-foreground: 224 71% 4%;
-    --popover: 204 100% 97%;
-    --popover-foreground: 224 71% 4%;
-    --primary: 212 71% 59%;
+    --background: 0 0% 96%; /* Light Grey */
+    --foreground: 0 0% 13%; /* Dark Grey */
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 13%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 13%;
+    --primary: 212 79% 45%; /* Blue */
     --primary-foreground: 210 40% 98%;
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 168 76% 42%;
-    --accent-foreground: 356 100% 99%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
     --destructive: 9 81% 59%;
     --destructive-foreground: 0 0% 98%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 212 71% 59%;
-    --positive: 145 63% 49%; /* Green */
-    --negative: 9 81% 59%; /* Red */
+    --ring: 212 79% 45%;
+    --positive: 122 39% 49%; /* Green */
+    --negative: 9 71% 58%; /* Red */
   }
 
   .dark {
@@ -38,21 +38,21 @@ body {
     --card-foreground: 210 40% 98%;
     --popover: 222 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 212 71% 59%;
+    --primary: 212 79% 45%;
     --primary-foreground: 210 40% 98%;
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 168 76% 42%;
+    --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 9 74% 56%;
+    --destructive: 9 71% 58%;
     --destructive-foreground: 0 0% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212 71% 59%;
-    --positive: 145 58% 52%; /* Green */
-    --negative: 9 74% 56%; /* Red */
+    --ring: 212 79% 45%;
+    --positive: 122 39% 49%; /* Green */
+    --negative: 9 71% 58%; /* Red */
   }
 }
 

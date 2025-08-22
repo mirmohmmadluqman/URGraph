@@ -62,9 +62,12 @@ export function URGraphChart() {
   const gradientId = "splitColor";
   const maxScore = Math.max(...graphData.map(d => d.value), 0);
   const minScore = Math.min(...graphData.map(d => d.value), 0);
-  const yAxisDomain = [
-    Math.floor(minScore * 1.2),
-    Math.ceil(maxScore * 1.2),
+  
+  // Ensure y-axis isn't flat if all values are the same
+  const yAxisPadding = Math.max(Math.abs(maxScore - minScore) * 0.1, 1);
+  const yAxisDomain: [number, number] = [
+    Math.floor(minScore - yAxisPadding),
+    Math.ceil(maxScore + yAxisPadding),
   ];
   
   const gradientOffset = () => {
@@ -106,8 +109,8 @@ export function URGraphChart() {
                  <AreaChart data={graphData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }} id="urgraph-chart-svg">
                  <defs>
                    <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                      <stop offset={off} stopColor="hsl(var(--positive))" stopOpacity={0.6} />
-                      <stop offset={off} stopColor="hsl(var(--negative))" stopOpacity={0.6} />
+                      <stop offset={off} stopColor="hsl(var(--positive))" stopOpacity={0.4} />
+                      <stop offset={off} stopColor="hsl(var(--negative))" stopOpacity={0.4} />
                    </linearGradient>
                     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
