@@ -10,14 +10,20 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { subMonths, parseISO } from 'date-fns';
 
 const SuggestActionLabelsInputSchema = z.object({
   score: z
     .number()
     .describe('The performance score for the action, from -4 to +4.'),
   previousEntries: z
-    .array(z.string())
-    .describe('An array of previous action descriptions.'),
+    .array(z.object({
+        description: z.string(),
+        score: z.number(),
+        date: z.string(),
+    }))
+    .describe('An array of previous action entries from the last 2 months.'),
+  apiKey: z.string().optional().describe('Optional user-provided Gemini API key.'),
 });
 export type SuggestActionLabelsInput = z.infer<typeof SuggestActionLabelsInputSchema>;
 
@@ -32,23 +38,35 @@ export async function suggestActionLabels(input: SuggestActionLabelsInput): Prom
   return suggestActionLabelsFlow(input);
 }
 
+const twoMonthsAgo = subMonths(new Date(), 2);
+const relevantEntries = (input: SuggestActionLabelsInput) => input.previousEntries.filter(entry => isAfter(parseISO(entry.date), twoMonthsAgo));
+
+
 const prompt = ai.definePrompt({
   name: 'suggestActionLabelsPrompt',
   input: {schema: SuggestActionLabelsInputSchema},
   output: {schema: SuggestActionLabelsOutputSchema},
-  prompt: `You are an AI assistant that suggests action labels/descriptions based on the user's input.
+  prompt: `You are an AI assistant that suggests action labels/descriptions based on the user's recent activity and performance.
 
-  The user has provided a score for the action, and a list of previous action descriptions.
+  Analyze the user's performance score for the current action and their action history from the last 2 months. Note trends in their scores and the types of actions they log.
 
-  Based on this information, suggest 3 action labels/descriptions that the user could use.
+  Based on this analysis, suggest 3 concise and relevant action labels. If the score is positive, suggest actions that build on success or are ambitious. If the score is negative, suggest actions that could help them improve or get back on track.
 
-  Score: {{{score}}}
-  Previous Entries:
-  {{#each previousEntries}}
-  - {{{this}}}
+  Current Action Score: {{{score}}}
+  
+  Recent History (last 2 months):
+  {{#each (relevantEntries this)}}
+  - "{{this.description}}" (Score: {{this.score}}, Date: {{this.date}})
   {{/each}}
   `,
+  config: {
+    // This allows the flow to use the user's API key if provided
+    apiKey: '{{apiKey}}',
+  }
+}, {
+    helpers: { relevantEntries }
 });
+
 
 const suggestActionLabelsFlow = ai.defineFlow(
   {

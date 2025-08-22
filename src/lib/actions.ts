@@ -11,6 +11,10 @@ export async function getAiSuggestions(
     return result.suggestions;
   } catch (error) {
     console.error('Error getting AI suggestions:', error);
+    // Check for specific API key error and provide a helpful message
+    if (error instanceof Error && error.message.includes('API key not valid')) {
+      return ['Error: The provided API key is invalid. Please check your settings.'];
+    }
     return [];
   }
 }

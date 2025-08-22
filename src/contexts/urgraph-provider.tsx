@@ -4,11 +4,11 @@
 import type { ReactNode } from 'react'
 import React, { createContext, useCallback, useEffect, useMemo, useState } from 'react'
 import { getAiSuggestions } from '@/lib/actions'
-import type { Action, TimeRange, HistoryCompaction } from '@/lib/types'
+import type { Action, TimeRange, HistoryCompaction, URGraphSettings } from '@/lib/types'
 import { useToast } from '@/hooks/use-toast'
 import { subDays, subMonths, subWeeks, subYears, isAfter, startOfDay, startOfWeek, startOfMonth, format, parseISO } from 'date-fns'
 import { db } from '@/lib/firebase'
-import { collection, doc, getDocs, writeBatch, query, orderBy, getDoc, setDoc } from 'firebase/firestore'
+import { collection, doc, getDocs, writeBatch, query, orderBy, getDoc, setDoc, deleteDoc } from 'firebase/firestore'
 
 // Using a static user ID for now. In a real app, this would be the authenticated user's ID.
 const USER_ID = "static_user";
@@ -16,10 +16,6 @@ const USER_ID = "static_user";
 interface Goal {
   target: number
   achieved: number
-}
-
-interface URGraphSettings {
-  historyCompaction: HistoryCompaction;
 }
 
 interface URGraphContextType {
@@ -51,7 +47,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
   const [actions, setActions] = useState<Action[]>([])
   const [timeRange, setTimeRange] = useState<TimeRange>('ALL')
   const [goal, setGoal] = useState<Goal>({ target: 20, achieved: 0 })
-  const [settings, setSettings] = useState<URGraphSettings>({ historyCompaction: 'never' });
+  const [settings, setSettings] = useState<URGraphSettings>({ historyCompaction: 'never', activeApiKey: 'main', apiKeys: [] });
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast()
 
@@ -73,7 +69,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       // Fetch Settings
       const settingsDoc = await getDoc(doc(db, `users/${USER_ID}/config/settings`));
       if (settingsDoc.exists()) {
-        setSettings(settingsDoc.data() as URGraphSettings);
+        setSettings(prev => ({...prev, ...settingsDoc.data()}));
       }
     } catch (error) {
       console.error("Failed to load from Firestore", error);
@@ -185,7 +181,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     }
     const newId = crypto.randomUUID();
     const actionWithId = { ...newAction, id: newId };
-    setActions(prev => [...prev, actionWithId]);
+    setActions(prev => [...prev, actionWithId].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime()));
 
     try {
         await setDoc(doc(db, `users/${USER_ID}/actions`, newId), newAction);
@@ -200,7 +196,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const originalActions = actions;
     setActions(prev => prev.filter(action => action.id !== id))
     try {
-        await writeBatch(db).delete(doc(db, `users/${USER_ID}/actions`, id)).commit();
+        await deleteDoc(doc(db, `users/${USER_ID}/actions`, id));
     } catch (error) {
         console.error("Failed to delete action:", error);
         toast({ title: "Sync Error", description: "Could not delete action from the cloud.", variant: "destructive" });
@@ -236,6 +232,10 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     setActions(data);
     try {
         const batch = writeBatch(db);
+        // Clear existing actions first
+        const actionsSnapshot = await getDocs(collection(db, `users/${USER_ID}/actions`));
+        actionsSnapshot.docs.forEach(d => batch.delete(d.ref));
+        // Add new actions
         data.forEach(action => {
             const { id, ...actionData } = action;
             batch.set(doc(db, `users/${USER_ID}/actions`, id), actionData);
@@ -268,7 +268,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const originalSettings = settings;
     setSettings(newSettings);
     try {
-      await setDoc(doc(db, `users/${USER_ID}/config/settings`), newSettings);
+      await setDoc(doc(db, `users/${USER_ID}/config/settings`), newSettings, { merge: true });
     } catch (error) {
       console.error("Failed to save settings:", error);
       toast({ title: "Sync Error", description: "Could not save settings to the cloud.", variant: "destructive" });
@@ -278,12 +278,18 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
 
 
   const getSuggestions = useCallback(async (score: number) => {
+    const twoMonthsAgo = subMonths(new Date(), 2);
     const previousEntries = actions
-      .filter(a => !a.description.startsWith('Compacted'))
-      .slice(-10)
-      .map(a => a.description)
-    return getAiSuggestions({ score, previousEntries })
-  }, [actions])
+      .filter(a => !a.description.startsWith('Compacted') && isAfter(parseISO(a.date), twoMonthsAgo))
+      .map(a => ({ description: a.description, score: a.score, date: a.date }));
+    
+    let apiKey: string | undefined = undefined;
+    if (settings.activeApiKey && settings.activeApiKey !== 'main') {
+        apiKey = settings.apiKeys?.find(k => k.name === settings.activeApiKey)?.key;
+    }
+
+    return getAiSuggestions({ score, previousEntries, apiKey })
+  }, [actions, settings.activeApiKey, settings.apiKeys])
 
   const categories = useMemo(() => {
     const allCategories = actions.map(a => a.category).filter(c => Boolean(c) && c !== 'COMPACTED') as string[];
@@ -362,11 +368,13 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     let currentStreak = 0;
     if (daysWithPositiveScore.size > 0) {
         let currentDate = startOfDay(new Date());
-        if(daysWithPositiveScore.has(currentDate.toISOString().split('T')[0])) {
-            while (daysWithPositiveScore.has(currentDate.toISOString().split('T')[0])) {
-                currentStreak++;
-                currentDate.setDate(currentDate.getDate() - 1);
-            }
+        if(!daysWithPositiveScore.has(currentDate.toISOString().split('T')[0])) {
+          currentDate.setDate(currentDate.getDate() -1);
+        }
+        
+        while (daysWithPositiveScore.has(currentDate.toISOString().split('T')[0])) {
+            currentStreak++;
+            currentDate.setDate(currentDate.getDate() - 1);
         }
     }
 
