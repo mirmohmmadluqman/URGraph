@@ -36,12 +36,12 @@ import {
   } from "@/components/ui/select"
 
 export function ActionHistory() {
-  const { actions, deleteAction, categories } = useURGraph()
+  const { actions: allActions, deleteAction, categories } = useURGraph()
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [sortConfig, setSortConfig] = useState<{ key: 'date' | 'score' | 'category'; direction: 'asc' | 'desc' }>({ key: 'date', direction: 'desc' });
 
-  const filteredAndSortedActions = useMemo(() => actions
+  const filteredAndSortedActions = useMemo(() => allActions
     .filter(action => {
         const searchMatch = action.description.toLowerCase().includes(searchTerm.toLowerCase());
         const categoryMatch = categoryFilter === 'ALL' || 
@@ -53,7 +53,7 @@ export function ActionHistory() {
         if (sortConfig.key === 'date') {
             const dateA = new Date(a.date).getTime();
             const dateB = new Date(b.date).getTime();
-            return sortConfig.direction === 'asc' ? dateA - dateB : dateB - a.date;
+            return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
         } else if (sortConfig.key === 'score') {
             return sortConfig.direction === 'asc' ? a.score - b.score : b.score - a.score;
         } else if (sortConfig.key === 'category') {
@@ -64,7 +64,7 @@ export function ActionHistory() {
             return 0;
         }
         return 0;
-    }), [actions, searchTerm, categoryFilter, sortConfig]);
+    }), [allActions, searchTerm, categoryFilter, sortConfig]);
 
   const handleSort = (key: 'date' | 'score' | 'category') => {
     setSortConfig(prev => ({
@@ -167,3 +167,5 @@ export function ActionHistory() {
     </Card>
   )
 }
+
+    

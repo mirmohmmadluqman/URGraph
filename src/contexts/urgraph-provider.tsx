@@ -54,8 +54,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast()
 
-  useEffect(() => {
-    // Load from cache first
+  const loadFromCache = useCallback(() => {
     try {
         const cachedActions = localStorage.getItem(ACTIONS_CACHE_KEY);
         if (cachedActions) setActions(JSON.parse(cachedActions));
@@ -68,10 +67,12 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     } catch (error) {
         console.warn("Failed to load from cache", error);
     }
+    setIsLoading(false);
   }, []);
 
   const fetchData = useCallback(async () => {
-    setIsLoading(true);
+    // This function will now be called after loading from cache.
+    // It will silently fail if offline, relying on the cached data.
     try {
       // Fetch Actions
       const actionsQuery = query(collection(db, `users/${USER_ID}/actions`), orderBy("date", "desc"));
@@ -100,15 +101,19 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
         });
       }
     } catch (error) {
-      console.error("Failed to load from Firestore", error);
-      toast({ title: "Error", description: "Could not load your data from the cloud. Displaying cached data.", variant: "destructive" });
+      // Don't toast here, as it's expected to fail when offline.
+      // The app will just use the cached data.
+      console.warn("Failed to load from Firestore (client may be offline):", error);
     }
-    setIsLoading(false);
-  }, [toast]);
-
+  }, []);
+  
   useEffect(() => {
+    // 1. Load data from local cache immediately on app start.
+    loadFromCache();
+    // 2. Then, try to fetch the latest data from Firestore.
     fetchData();
-  }, [fetchData]);
+  }, [loadFromCache, fetchData]);
+
 
   const compactHistory = useCallback((actionsToCompact: Action[]) => {
     if (settings.historyCompaction === 'never' || actionsToCompact.length === 0) return { compacted: actionsToCompact, toDelete: [] };
@@ -273,8 +278,9 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
 
   const importData = useCallback(async (data: Action[]) => {
     const originalActions = actions;
-    setActions(data);
-    localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(data));
+    const newActions = [...data].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+    setActions(newActions);
+    localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
     try {
         const batch = writeBatch(db);
         // Clear existing actions first
@@ -447,7 +453,7 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
   }, [filteredActions, actions, goal.achieved])
 
   const value = {
-    actions: filteredActions,
+    actions,
     timeRange,
     setTimeRange,
     addAction,
@@ -470,3 +476,5 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     </URGraphContext.Provider>
   )
 }
+
+    
