@@ -216,9 +216,11 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const newId = crypto.randomUUID();
     const actionWithId = { ...newAction, id: newId };
     
-    const newActions = [...actions, actionWithId].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
-    setActions(newActions);
-    localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
+    setActions(prevActions => {
+        const newActions = [...prevActions, actionWithId].sort((a,b) => parseISO(b.date).getTime() - parseISO(a.date).getTime());
+        localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(newActions));
+        return newActions;
+    });
 
     try {
         await setDoc(doc(db, `users/${USER_ID}/actions`, newId), newAction);
@@ -226,11 +228,13 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
         console.error("Failed to save action:", error);
         toast({ title: "Sync Error", description: "Could not save action to the cloud.", variant: "destructive" });
         // Revert optimistic update
-        const revertedActions = actions.filter(a => a.id !== newId);
-        setActions(revertedActions);
-        localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(revertedActions));
+        setActions(prevActions => {
+            const revertedActions = prevActions.filter(a => a.id !== newId);
+            localStorage.setItem(ACTIONS_CACHE_KEY, JSON.stringify(revertedActions));
+            return revertedActions;
+        });
     }
-  }, [toast, actions])
+  }, [toast])
 
   const deleteAction = useCallback(async (id: string) => {
     const originalActions = actions;
@@ -369,13 +373,17 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       }
   };
 
-  const { graphData, stats } = useMemo(() => {
+  const { graphData, stats, goalAchieved } = useMemo(() => {
     const allActionsSorted = [...actions].sort((a, b) => parseISO(a.date).getTime() - parseISO(b.date).getTime())
+    
+    const defaultReturn = {
+        graphData: [],
+        stats: { dailyScore: 0, dailyActions: 0, avgScore: 0, streak: 0 },
+        goalAchieved: 0
+    };
+
     if (allActionsSorted.length === 0) {
-        return { 
-            graphData: [], 
-            stats: { dailyScore: 0, dailyActions: 0, avgScore: 0, streak: 0 } 
-        };
+        return defaultReturn;
     }
     
     const earliestActionDate = parseISO(allActionsSorted[0].date);
@@ -425,10 +433,6 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
     const dailyScore = todayActions.reduce((sum, a) => sum + a.score, 0);
 
     const scoreForGoal = actions.reduce((sum, a) => sum + a.score, 0);
-    // This is a side effect in a memo, which is not ideal. But for now it works.
-    if (goal.achieved !== scoreForGoal) {
-        setGoal(g => ({ ...g, achieved: scoreForGoal }));
-    }
 
     // Streak calculation
     const allDaysScoresForStreak: { [key: string]: number } = {}
@@ -463,8 +467,14 @@ export function URGraphProvider({ children }: { children: ReactNode }) {
       streak: currentStreak,
     }
 
-    return { graphData: finalGraphData, stats: newStats }
-  }, [actions, timeRange, goal.achieved])
+    return { graphData: finalGraphData, stats: newStats, goalAchieved: scoreForGoal }
+  }, [actions, timeRange])
+
+  useEffect(() => {
+    if (goal.achieved !== goalAchieved) {
+        setGoal(g => ({ ...g, achieved: goalAchieved }));
+    }
+  }, [goal.achieved, goalAchieved]);
 
   const value = {
     actions,
