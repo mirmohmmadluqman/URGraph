@@ -8,7 +8,7 @@ body {
 
 @layer base {
   :root {
-    --background: 204 100% 97%;
+    --background: 204 100% 98%; /* Lighter grey/white */
     --foreground: 224 71% 4%;
     --card: 204 100% 97%;
     --card-foreground: 224 71% 4%;
@@ -27,9 +27,8 @@ body {
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 212 71% 59%;
-    --radius: 0.5rem;
-    --positive: 145 63% 49%;
-    --negative: 9 81% 59%;
+    --positive: 145 63% 49%; /* Green */
+    --negative: 9 81% 59%; /* Red */
   }
 
   .dark {
@@ -52,8 +51,8 @@ body {
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 212 71% 59%;
-    --positive: 145 58% 52%;
-    --negative: 9 74% 56%;
+    --positive: 145 58% 52%; /* Green */
+    --negative: 9 74% 56%; /* Red */
   }
 }
 
@@ -63,10 +62,5 @@ body {
   }
   body {
     @apply bg-background text-foreground;
-    background: linear-gradient(180deg, hsl(204, 100%, 97%), hsl(190, 75%, 93%));
-  }
-
-  .dark body {
-    background: linear-gradient(180deg, hsl(222, 84%, 8%), hsl(222, 84%, 4.9%));
   }
 }
